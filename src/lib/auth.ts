@@ -3,12 +3,16 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { getDb } from "./db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
+const JWT_SECRET_ENV = process.env.JWT_SECRET;
+const INSECURE_DEFAULT = "dev-only-insecure-secret-change-me";
 
-if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-only-insecure-secret-change-me") {
-  throw new Error(
-    "JWT_SECRET is not set. Refusing to start in production with the default secret — set a real random JWT_SECRET environment variable before deploying."
-  );
+function getJwtSecret(): string {
+  if (process.env.NODE_ENV === "production" && (!JWT_SECRET_ENV || JWT_SECRET_ENV === INSECURE_DEFAULT)) {
+    throw new Error(
+      "JWT_SECRET is not set. Refusing to operate in production with the default secret — set a real random JWT_SECRET environment variable and redeploy."
+    );
+  }
+  return JWT_SECRET_ENV || INSECURE_DEFAULT;
 }
 
 const COOKIE_NAME = "itp_session";
@@ -34,7 +38,7 @@ export async function verifyPassword(pw: string, hash: string) {
 }
 
 export function signSession(user: SessionUser): string {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: "8h" });
+  return jwt.sign(user, getJwtSecret(), { expiresIn: "8h" });
 }
 
 export async function setSessionCookie(user: SessionUser) {
@@ -59,7 +63,7 @@ export async function getSession(): Promise<SessionUser | null> {
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
-    return jwt.verify(token, JWT_SECRET) as SessionUser;
+    return jwt.verify(token, getJwtSecret()) as SessionUser;
   } catch {
     return null;
   }
@@ -88,7 +92,7 @@ interface MfaPendingPayload {
 }
 
 export async function setMfaPendingCookie(userId: string) {
-  const token = jwt.sign({ userId, purpose: "mfa_pending" } satisfies MfaPendingPayload, JWT_SECRET, { expiresIn: "5m" });
+  const token = jwt.sign({ userId, purpose: "mfa_pending" } satisfies MfaPendingPayload, getJwtSecret(), { expiresIn: "5m" });
   const store = await cookies();
   store.set(MFA_PENDING_COOKIE, token, {
     httpOnly: true,
@@ -104,7 +108,7 @@ export async function getMfaPendingUserId(): Promise<string | null> {
   const token = store.get(MFA_PENDING_COOKIE)?.value;
   if (!token) return null;
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as MfaPendingPayload;
+    const payload = jwt.verify(token, getJwtSecret()) as MfaPendingPayload;
     if (payload.purpose !== "mfa_pending") return null;
     return payload.userId;
   } catch {
