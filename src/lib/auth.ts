@@ -12,6 +12,7 @@ if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-only-insecure-s
 }
 
 const COOKIE_NAME = "itp_session";
+const MFA_PENDING_COOKIE = "itp_mfa_pending";
 
 export type Role = "EMPLOYEE" | "COMPLIANCE_OFFICER" | "ADMIN";
 
@@ -76,4 +77,42 @@ export function getUserById(id: string) {
     .get(id) as
     | { id: string; tenantId: string; email: string; fullName: string; role: Role; designatedPerson: number }
     | undefined;
+}
+
+// --- MFA pending step: issued right after password verification succeeds for a user
+// with MFA enabled. Short-lived (5 min), carries only the user id — never a full session.
+
+interface MfaPendingPayload {
+  userId: string;
+  purpose: "mfa_pending";
+}
+
+export async function setMfaPendingCookie(userId: string) {
+  const token = jwt.sign({ userId, purpose: "mfa_pending" } satisfies MfaPendingPayload, JWT_SECRET, { expiresIn: "5m" });
+  const store = await cookies();
+  store.set(MFA_PENDING_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 5,
+  });
+}
+
+export async function getMfaPendingUserId(): Promise<string | null> {
+  const store = await cookies();
+  const token = store.get(MFA_PENDING_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as MfaPendingPayload;
+    if (payload.purpose !== "mfa_pending") return null;
+    return payload.userId;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearMfaPendingCookie() {
+  const store = await cookies();
+  store.delete(MFA_PENDING_COOKIE);
 }

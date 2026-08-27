@@ -11,5 +11,7 @@ export async function GET() {
     .prepare(`SELECT id, name, brand_name as brandName, primary_color as primaryColor, logo_url as logoUrl FROM tenants WHERE id = ?`)
     .get(session.tenantId);
 
-  return NextResponse.json({ user: session, tenant });
+  const row = db.prepare(`SELECT mfa_enabled as mfaEnabled FROM users WHERE id = ?`).get(session.id) as { mfaEnabled: number } | undefined;
+
+  return NextResponse.json({ user: { ...session, mfaEnabled: !!row?.mfaEnabled }, tenant });
 }

@@ -10,6 +10,7 @@ export interface SessionUser {
   fullName: string;
   role: "EMPLOYEE" | "COMPLIANCE_OFFICER" | "ADMIN";
   designatedPerson: boolean;
+  mfaEnabled?: boolean;
 }
 
 export interface Tenant {

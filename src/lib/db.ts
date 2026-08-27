@@ -42,6 +42,8 @@ function migrate(db: DatabaseSync) {
       role TEXT NOT NULL CHECK(role IN ('EMPLOYEE','COMPLIANCE_OFFICER','ADMIN')),
       employee_code TEXT,
       designated_person INTEGER NOT NULL DEFAULT 0, -- 1 if classified as a "Designated Person" under PIT rules
+      mfa_secret TEXT,               -- base32 TOTP secret; set once user starts MFA setup
+      mfa_enabled INTEGER NOT NULL DEFAULT 0, -- 1 once user has confirmed a code and MFA is enforced
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(tenant_id, email)
     );
