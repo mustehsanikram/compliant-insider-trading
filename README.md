@@ -9,6 +9,7 @@ A multi-tenant employee insider trading compliance portal covering:
 - **Employee Self-Declarations** — initial/annual holding disclosures, transaction disclosures, immediate-relative updates, with compliance acknowledgement
 - **White-label branding** — brand name, primary color, logo, and support email are per-tenant and applied live across the UI (multi-tenant: one deployment can serve many client organizations, or you can run one deployment per client)
 - **Role-based access** (Employee / Compliance Officer / Admin) and an append-only audit log across every mutating action
+- **TOTP-based Two-Factor Authentication (2FA)** — every user can enable it from the Security page (scan a QR code with Google Authenticator/Authy, confirm a code). Once enabled, login becomes a two-step flow: password, then a 6-digit code.
 
 ### Mutual fund / AMC support
 
