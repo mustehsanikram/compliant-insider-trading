@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, logAudit } from "@/lib/db";
 import { verifyPassword, setSessionCookie } from "@/lib/auth";
+import { isRateLimited } from "@/lib/rate-limit";
 import { z } from "zod";
 
 const schema = z.object({
@@ -9,6 +10,11 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (isRateLimited(`login:${ip}`)) {
+    return NextResponse.json({ error: "Too many login attempts. Please try again in a few minutes." }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {

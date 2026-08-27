@@ -4,6 +4,13 @@ import { cookies } from "next/headers";
 import { getDb } from "./db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
+
+if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-only-insecure-secret-change-me") {
+  throw new Error(
+    "JWT_SECRET is not set. Refusing to start in production with the default secret — set a real random JWT_SECRET environment variable before deploying."
+  );
+}
+
 const COOKIE_NAME = "itp_session";
 
 export type Role = "EMPLOYEE" | "COMPLIANCE_OFFICER" | "ADMIN";

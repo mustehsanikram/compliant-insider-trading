@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("employee@demo.example");
-  const [password, setPassword] = useState("Employee@12345");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -62,13 +62,6 @@ export default function LoginPage() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
-
-        <div className="mt-6 text-xs text-slate-400 border-t border-slate-100 pt-4 space-y-1">
-          <p className="font-medium text-slate-500">Demo accounts (seeded):</p>
-          <p>admin@demo.example / Admin@12345</p>
-          <p>compliance@demo.example / Compliance@12345</p>
-          <p>employee@demo.example / Employee@12345</p>
-        </div>
       </div>
     </div>
   );
