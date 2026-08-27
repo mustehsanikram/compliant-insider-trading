@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, logAudit } from "@/lib/db";
+import { getDb, logAudit, runSurveillanceCheck } from "@/lib/db";
 import { getSession, requireRole } from "@/lib/auth";
 import { z } from "zod";
 
@@ -45,6 +45,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     entityId: id,
     metadata: parsed.data,
   });
+
+  if (parsed.data.decision === "APPROVED") {
+    const req = db
+      .prepare(`SELECT user_id as userId, security_name as securityName, isin, requested_at as requestedAt FROM preclearance_requests WHERE id = ?`)
+      .get(id) as { userId: string; securityName: string; isin: string | null; requestedAt: string };
+
+    runSurveillanceCheck(db, {
+      tenantId: session.tenantId,
+      securityName: req.securityName,
+      isin: req.isin,
+      employeeUserId: req.userId,
+      employeeTradeDate: req.requestedAt,
+      source: "PRECLEARANCE",
+      sourceId: id,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

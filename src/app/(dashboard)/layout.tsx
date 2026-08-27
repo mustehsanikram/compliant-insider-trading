@@ -11,6 +11,8 @@ const NAV = [
   { href: "/preclearance", label: "Pre-Clearance", roles: ["EMPLOYEE", "COMPLIANCE_OFFICER", "ADMIN"] },
   { href: "/declarations", label: "Declarations", roles: ["EMPLOYEE", "COMPLIANCE_OFFICER", "ADMIN"] },
   { href: "/upsi", label: "UPSI Register", roles: ["COMPLIANCE_OFFICER", "ADMIN"] },
+  { href: "/scheme-trades", label: "Scheme Trades", roles: ["COMPLIANCE_OFFICER", "ADMIN"] },
+  { href: "/alerts", label: "Surveillance Alerts", roles: ["COMPLIANCE_OFFICER", "ADMIN"] },
   { href: "/admin", label: "Branding / Admin", roles: ["ADMIN"] },
 ];
 

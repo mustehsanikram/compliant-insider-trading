@@ -136,13 +136,103 @@ function migrate(db: DatabaseSync) {
       at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Mutual fund / AMC surveillance: the scheme's own trades, logged for comparison against
+    -- employee trades (front-running detection under SEBI's 2022 institutional mechanism circular).
+    -- Also usable by non-AMC clients simply as a company trade log if relevant.
+    CREATE TABLE IF NOT EXISTS scheme_trades (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      scheme_name TEXT NOT NULL,
+      security_name TEXT NOT NULL,
+      isin TEXT,
+      transaction_type TEXT NOT NULL CHECK(transaction_type IN ('BUY','SELL')),
+      quantity INTEGER NOT NULL,
+      trade_date TEXT NOT NULL,
+      logged_by TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Auto-generated whenever an employee trade (pre-clearance approval or a TRANSACTION
+    -- declaration) falls within the surveillance window of a scheme trade in the same security.
+    CREATE TABLE IF NOT EXISTS surveillance_alerts (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      alert_type TEXT NOT NULL DEFAULT 'FRONT_RUNNING_PATTERN',
+      security_name TEXT NOT NULL,
+      employee_user_id TEXT NOT NULL REFERENCES users(id),
+      employee_source TEXT NOT NULL, -- 'PRECLEARANCE' or 'DECLARATION'
+      employee_source_id TEXT NOT NULL,
+      scheme_trade_id TEXT NOT NULL REFERENCES scheme_trades(id),
+      days_between INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','REVIEWED','DISMISSED','ESCALATED')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      reviewed_by TEXT REFERENCES users(id),
+      reviewed_at TEXT,
+      review_note TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
     CREATE INDEX IF NOT EXISTS idx_restricted_tenant ON restricted_list(tenant_id);
     CREATE INDEX IF NOT EXISTS idx_preclearance_tenant ON preclearance_requests(tenant_id);
     CREATE INDEX IF NOT EXISTS idx_upsi_tenant ON upsi_entries(tenant_id);
     CREATE INDEX IF NOT EXISTS idx_declarations_tenant ON declarations(tenant_id);
     CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_scheme_trades_tenant ON scheme_trades(tenant_id, security_name);
+    CREATE INDEX IF NOT EXISTS idx_alerts_tenant ON surveillance_alerts(tenant_id);
   `);
+}
+
+const SURVEILLANCE_WINDOW_DAYS = 7;
+
+/**
+ * Compares one employee-side trade (a security + date) against all logged scheme trades
+ * in the same security within the surveillance window, and creates an alert for each match
+ * that doesn't already have one. This is the front-running detection SEBI's 2022 institutional
+ * mechanism circular expects AMCs to run — approximate, but a real starting point.
+ */
+export function runSurveillanceCheck(
+  db: DatabaseSync,
+  params: {
+    tenantId: string;
+    securityName: string;
+    isin?: string | null;
+    employeeUserId: string;
+    employeeTradeDate: string; // ISO date
+    source: "PRECLEARANCE" | "DECLARATION";
+    sourceId: string;
+  }
+) {
+  const schemeTrades = db
+    .prepare(
+      `SELECT id, trade_date as tradeDate FROM scheme_trades
+       WHERE tenant_id = ? AND (security_name = ? OR (isin IS NOT NULL AND isin = ?))`
+    )
+    .all(params.tenantId, params.securityName, params.isin ?? "") as { id: string; tradeDate: string }[];
+
+  const employeeDate = new Date(params.employeeTradeDate).getTime();
+  const alerts: string[] = [];
+
+  for (const trade of schemeTrades) {
+    const schemeDate = new Date(trade.tradeDate).getTime();
+    const daysBetween = Math.round(Math.abs(employeeDate - schemeDate) / (1000 * 60 * 60 * 24));
+    if (daysBetween > SURVEILLANCE_WINDOW_DAYS) continue;
+
+    const existing = db
+      .prepare(
+        `SELECT id FROM surveillance_alerts WHERE tenant_id = ? AND employee_source = ? AND employee_source_id = ? AND scheme_trade_id = ?`
+      )
+      .get(params.tenantId, params.source, params.sourceId, trade.id);
+    if (existing) continue;
+
+    const id = crypto.randomUUID();
+    db.prepare(
+      `INSERT INTO surveillance_alerts (id, tenant_id, security_name, employee_user_id, employee_source, employee_source_id, scheme_trade_id, days_between)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, params.tenantId, params.securityName, params.employeeUserId, params.source, params.sourceId, trade.id, daysBetween);
+    alerts.push(id);
+  }
+
+  return alerts;
 }
 
 export function logAudit(

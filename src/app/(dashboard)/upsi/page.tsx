@@ -53,7 +53,7 @@ export default function UpsiPage() {
       <div>
         <h1 className="text-lg font-semibold text-slate-900">UPSI Register (Structured Digital Database)</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Append-only log of Unpublished Price Sensitive Information. Entries are hashed at creation time for tamper evidence and cannot be edited or deleted through the UI.
+          Append-only log of non-public, price/NAV-sensitive information — corporate UPSI for listed-company clients, or portfolio/scheme decisions (upcoming large trades, subscription/redemption info) for mutual fund/AMC clients. Entries are hashed at creation time for tamper evidence and cannot be edited or deleted through the UI.
         </p>
       </div>
 
