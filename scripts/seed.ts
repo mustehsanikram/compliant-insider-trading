@@ -21,6 +21,7 @@ async function main() {
   ).run("demo", "Demo Financial Services Ltd.", "Demo Compliance Portal", "#1d4ed8", "compliance@demo.example");
 
   const users = [
+    { email: "mvp@gmail.com", name: "MVP Admin", role: "ADMIN", pw: "demo@1234!", designated: 0 },
     { email: "admin@demo.example", name: "Aisha Khan", role: "ADMIN", pw: randomPassword(), designated: 0 },
     { email: "compliance@demo.example", name: "Ravi Mehta", role: "COMPLIANCE_OFFICER", pw: randomPassword(), designated: 0 },
     { email: "employee@demo.example", name: "Sara Ahmed", role: "EMPLOYEE", pw: randomPassword(), designated: 1 },
