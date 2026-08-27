@@ -32,30 +32,48 @@ export async function POST(req: NextRequest) {
 
   const db = getDb();
   const existing = db.prepare(`SELECT id FROM tenants WHERE id = ?`).get("demo");
-  if (existing) {
-    return NextResponse.json({ message: "Demo tenant already seeded on this instance. No changes made." });
+
+  if (!existing) {
+    db.prepare(
+      `INSERT INTO tenants (id, name, brand_name, primary_color, support_email) VALUES (?, ?, ?, ?, ?)`
+    ).run("demo", "Demo Financial Services Ltd.", "Demo Compliance Portal", "#1d4ed8", "compliance@demo.example");
+
+    const users = [
+      { email: "mvp@gmail.com", name: "MVP Admin", role: "ADMIN", pw: "demo@1234!", designated: 0 },
+      { email: "admin@demo.example", name: "Aisha Khan", role: "ADMIN", pw: randomPassword(), designated: 0 },
+      { email: "compliance@demo.example", name: "Ravi Mehta", role: "COMPLIANCE_OFFICER", pw: randomPassword(), designated: 0 },
+      { email: "employee@demo.example", name: "Sara Ahmed", role: "EMPLOYEE", pw: randomPassword(), designated: 1 },
+    ];
+
+    for (const u of users) {
+      const hash = await bcrypt.hash(u.pw, 10);
+      db.prepare(
+        `INSERT INTO users (id, tenant_id, email, password_hash, full_name, role, designated_person) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(crypto.randomUUID(), "demo", u.email, hash, u.name, u.role, u.designated);
+    }
+
+    return NextResponse.json({
+      message: "Seeded successfully on the live instance.",
+      accounts: users.map((u) => ({ role: u.role, email: u.email, password: u.pw })),
+    });
   }
 
-  db.prepare(
-    `INSERT INTO tenants (id, name, brand_name, primary_color, support_email) VALUES (?, ?, ?, ?, ?)`
-  ).run("demo", "Demo Financial Services Ltd.", "Demo Compliance Portal", "#1d4ed8", "compliance@demo.example");
+  // Tenant already exists (e.g. from an earlier partial seed or the now-removed auto-login
+  // flow). Always ensure mvp@gmail.com specifically has the correct known password, since an
+  // earlier auto-login run could have created it with an unusable random hash.
+  const mvpHash = await bcrypt.hash("demo@1234!", 10);
+  const mvpUser = db.prepare(`SELECT id FROM users WHERE tenant_id = ? AND email = ?`).get("demo", "mvp@gmail.com") as { id: string } | undefined;
 
-  const users = [
-    { email: "mvp@gmail.com", name: "MVP Admin", role: "ADMIN", pw: "demo@1234!", designated: 0 },
-    { email: "admin@demo.example", name: "Aisha Khan", role: "ADMIN", pw: randomPassword(), designated: 0 },
-    { email: "compliance@demo.example", name: "Ravi Mehta", role: "COMPLIANCE_OFFICER", pw: randomPassword(), designated: 0 },
-    { email: "employee@demo.example", name: "Sara Ahmed", role: "EMPLOYEE", pw: randomPassword(), designated: 1 },
-  ];
-
-  for (const u of users) {
-    const hash = await bcrypt.hash(u.pw, 10);
+  if (mvpUser) {
+    db.prepare(`UPDATE users SET password_hash = ?, role = 'ADMIN' WHERE id = ?`).run(mvpHash, mvpUser.id);
+  } else {
     db.prepare(
       `INSERT INTO users (id, tenant_id, email, password_hash, full_name, role, designated_person) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(crypto.randomUUID(), "demo", u.email, hash, u.name, u.role, u.designated);
+    ).run(crypto.randomUUID(), "demo", "mvp@gmail.com", mvpHash, "MVP Admin", "ADMIN", 0);
   }
 
   return NextResponse.json({
-    message: "Seeded successfully on the live instance.",
-    accounts: users.map((u) => ({ role: u.role, email: u.email, password: u.pw })),
+    message: "Tenant already existed. Ensured mvp@gmail.com exists with the correct password.",
+    accounts: [{ role: "ADMIN", email: "mvp@gmail.com", password: "demo@1234!" }],
   });
 }

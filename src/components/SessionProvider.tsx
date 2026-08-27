@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 export interface SessionUser {
@@ -33,27 +34,18 @@ export function useSession() {
   return useContext(SessionContext);
 }
 
-// NOTE: login authentication has been intentionally removed for this deployment.
-// Any visitor is automatically signed in as a default Admin account — see README.
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   async function refresh() {
     setLoading(true);
     try {
       const data = await apiFetch<{ user: SessionUser | null; tenant: Tenant | null }>("/api/auth/me");
-      if (!data.user) {
-        // No session yet — auto-login instead of redirecting to a login form.
-        await apiFetch("/api/auth/auto", { method: "POST" });
-        const retry = await apiFetch<{ user: SessionUser | null; tenant: Tenant | null }>("/api/auth/me");
-        setUser(retry.user);
-        setTenant(retry.tenant);
-      } else {
-        setUser(data.user);
-        setTenant(data.tenant);
-      }
+      setUser(data.user);
+      setTenant(data.tenant);
     } finally {
       setLoading(false);
     }
@@ -63,6 +55,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!loading && !user && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      router.replace("/login");
+    }
+  }, [loading, user, router]);
 
   return <SessionContext.Provider value={{ user, tenant, loading, refresh }}>{children}</SessionContext.Provider>;
 }
