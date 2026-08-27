@@ -1,5 +1,16 @@
 # Insider Trading Compliance Portal (White-Label)
 
+## ⚠️ Login authentication is currently DISABLED on this deployment
+
+At the user's explicit request, this build **auto-signs in every visitor as an Admin account** (`mvp@gmail.com`) with no password required — there is no login gate at all right now. Anyone with the URL has full access to every module and every admin function.
+
+This was done deliberately to eliminate login/deployment friction during a demo push. **Before this touches real client data or stays live longer than a walkthrough, re-enable authentication:**
+1. Revert `src/components/SessionProvider.tsx` to redirect to `/login` instead of calling `/api/auth/auto` (see git history just before this commit — a clean revert)
+2. Revert `src/app/login/page.tsx` to the real login form (also in git history)
+3. Consider deleting `/api/auth/auto/route.ts` entirely once reverted
+
+Until that revert happens, treat the URL itself as the only access control.
+
 A multi-tenant employee insider trading compliance portal covering:
 
 - **Restricted List** — securities under trading restriction, with reasons and audit trail
