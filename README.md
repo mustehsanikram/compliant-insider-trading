@@ -29,6 +29,37 @@ This app implements the *mechanics* SEBI's PIT (Prohibition of Insider Trading) 
 - **SQLite via Node's built-in `node:sqlite`** (Node 22+) — no external database server or native-module build step required. Swappable for Postgres for production multi-tenant scale (see below).
 - **JWT session cookies** (httpOnly), **bcrypt** password hashing, **zod** input validation
 
+## Fastest path to a live demo link (do this now)
+
+**Railway**, deployed via its CLI directly from your local folder — no GitHub push required, persistent disk works with the SQLite file as-is, HTTPS included automatically.
+
+```bash
+npm install -g @railway/cli
+railway login                 # opens a browser to authenticate
+cd insider-trading-portal
+railway init                  # creates a new Railway project
+railway up                    # builds and deploys this folder directly
+```
+
+Then, in the Railway dashboard for this project:
+1. **Variables** tab -> add `JWT_SECRET` set to a real random string (generate one: `openssl rand -base64 32`). The app will refuse to start in production without this -- that's intentional.
+2. **Settings** -> **Networking** -> click "Generate Domain" to get your public `https://<something>.up.railway.app` URL.
+3. Add a **Volume** mounted at `/app/data`, and set `SQLITE_PATH=/app/data/app.db` as another variable, so your data survives redeploys.
+4. Open a **Railway Shell** (or SSH in) and run `npx tsx scripts/seed.ts` once to create the demo tenant + accounts. **Copy the printed passwords immediately** -- they're shown once in the terminal output, never in the app UI.
+5. Share the URL and credentials with your client **privately** (direct message, not in a public thread) -- the login page intentionally no longer displays any credentials on screen.
+
+This gets you a real, secured, HTTPS demo link in a few minutes without touching GitHub.
+
+## Security posture for this demo build
+
+- No credentials are shown anywhere in the UI -- the login page's earlier hint box (with demo passwords visible on screen) has been removed.
+- Seed script now generates strong random passwords per environment, printed once to your terminal only.
+- Login endpoint is rate-limited (10 attempts / 5 minutes per IP) against brute-force.
+- Security headers set on every response: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and HSTS.
+- The app **refuses to start in production** if `JWT_SECRET` isn't explicitly set -- no accidental deploys with the insecure dev default.
+- Session cookies are `httpOnly` and marked `secure` automatically once `NODE_ENV=production` (true on Railway/Render/Vercel by default).
+- Before sending the link to your client: rotate any secrets that passed through chat or a terminal you don't fully trust, and treat the seeded accounts as throwaway -- swap in real client users before this becomes anything beyond a demo.
+
 ## Local setup
 
 ```bash
