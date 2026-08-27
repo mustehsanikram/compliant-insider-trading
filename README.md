@@ -10,6 +10,15 @@ A multi-tenant employee insider trading compliance portal covering:
 - **White-label branding** — brand name, primary color, logo, and support email are per-tenant and applied live across the UI (multi-tenant: one deployment can serve many client organizations, or you can run one deployment per client)
 - **Role-based access** (Employee / Compliance Officer / Admin) and an append-only audit log across every mutating action
 
+### Mutual fund / AMC support
+
+Mutual fund insider trading falls under a different SEBI framework than listed companies (SEBI (Mutual Funds) Regulations, 1996 + the 2022 circular on Institutional Mechanism for Prevention of Fraud/Market Abuse), which is about front-running the fund's own trades rather than corporate UPSI. Two extra pieces support this:
+
+- **Scheme Trades** — compliance logs the AMC's own fund trades (scheme, security, buy/sell, quantity, date)
+- **Surveillance Alerts** — automatically generated whenever an employee's approved pre-clearance trade falls within 7 days of a scheme trade in the same security. This is the core front-running detection pattern; compliance reviews each alert as Reviewed / Dismissed / Escalated.
+
+The restricted list, pre-clearance, and UPSI/SDD register modules work for both listed-company and mutual-fund clients as-is — the UPSI register for an AMC client would log portfolio/scheme decisions instead of corporate events. The surveillance window (7 days) is a starting default; adjust `SURVEILLANCE_WINDOW_DAYS` in `src/lib/db.ts` per client requirements. Declarations don't yet feed the surveillance check automatically (only approved pre-clearances do) — extending that is a reasonable next step if a client's transaction declarations need the same check.
+
 ## Important: this is functional software, not a compliance certification
 
 This app implements the *mechanics* SEBI's PIT (Prohibition of Insider Trading) regulations and the Structured Digital Database (SDD) requirement typically call for — restricted lists, trading windows, pre-clearance, UPSI logging, disclosures, audit trails. It has **not** been reviewed by a SEBI compliance professional or lawyer. Before selling or deploying this as "SEBI PIT/SDD compliant," have a qualified compliance consultant review the actual regulations (SEBI PIT Regulations, 2015, as amended) against this implementation and sign off. Treat this as a strong technical foundation, not a legal guarantee.
