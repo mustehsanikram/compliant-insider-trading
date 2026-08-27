@@ -10,6 +10,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  productionBrowserSourceMaps: false, // never ship source maps to the browser in production builds
   async headers() {
     return [
       {
