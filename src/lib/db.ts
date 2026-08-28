@@ -4,15 +4,15 @@ import fs from "fs";
 
 const DB_PATH = process.env.SQLITE_PATH || path.join(process.cwd(), "data", "app.db");
 
-// Ensure data directory exists (works both locally and in most container hosts;
-// for production, mount a persistent volume at this path or swap this module
-// for a Postgres client — see README "Production database" section).
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-
 let _db: DatabaseSync | null = null;
 
 export function getDb(): DatabaseSync {
   if (_db) return _db;
+  // Ensure data directory exists — done lazily here (not at module import time) so that
+  // Next.js's build-time "Collecting page data" step, which imports this module without
+  // actually calling getDb(), never touches the filesystem and can't fail the build in
+  // environments with a different/restricted filesystem context than runtime.
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const db = new DatabaseSync(DB_PATH);
   db.exec("PRAGMA foreign_keys = ON;");
   migrate(db);
